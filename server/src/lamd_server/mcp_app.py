@@ -4,9 +4,9 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from .git_info import GitUnavailableError, get_current_branch, get_git_user
-from .project_root import find_project_root
+from .project_root import ProjectRootNotFoundError, find_project_root
 from .search import search_memory
-from .storage import read_memory_records, write_decision, write_session
+from .storage import list_rules, read_memory_records, write_decision, write_session
 
 mcp = FastMCP("lamd")
 
@@ -17,7 +17,10 @@ MISSING_LAMD_ERROR = (
 
 
 def _project_root() -> Path:
-    return find_project_root(Path.cwd())
+    try:
+        return find_project_root(Path.cwd())
+    except ProjectRootNotFoundError as exc:
+        raise RuntimeError(MISSING_LAMD_ERROR) from exc
 
 
 def _require_lamd_dir(root: Path) -> None:
@@ -34,6 +37,18 @@ def get_rule(name: str) -> str:
     if not candidate.is_relative_to(rules_dir):
         raise RuntimeError(f"Invalid rule name: {name!r}")
     return candidate.read_text(encoding="utf-8")
+
+
+@mcp.resource("lamd://rules")
+def get_all_rules() -> str:
+    root = _project_root()
+    _require_lamd_dir(root)
+    rules = list_rules(root)
+    if not rules:
+        return "No rules defined yet."
+    return "\n\n---\n\n".join(
+        f"# {rule.name}\n\n{rule.read_text(encoding='utf-8')}" for rule in rules
+    )
 
 
 @mcp.tool()
