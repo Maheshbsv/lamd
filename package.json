@@ -1,0 +1,8 @@
+{
+  "name": "lamd",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "lamd": "./installer/bin/lamd.js"
+  }
+}
