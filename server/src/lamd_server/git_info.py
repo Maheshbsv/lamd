@@ -26,7 +26,8 @@ def _run_git(args: list[str], cwd: Path) -> str:
 
 
 def get_git_user(cwd: Path) -> str:
-    name = _run_git(["config", "--local", "user.name"], cwd=cwd)
+    _run_git(["rev-parse", "--is-inside-work-tree"], cwd=cwd)
+    name = _run_git(["config", "user.name"], cwd=cwd)
     if not name:
         raise GitUnavailableError("git config user.name is not set")
     return name

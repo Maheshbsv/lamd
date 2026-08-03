@@ -39,3 +39,29 @@ def test_get_git_user_raises_outside_a_repo(tmp_path):
     not_a_repo.mkdir()
     with pytest.raises(GitUnavailableError):
         get_git_user(not_a_repo)
+
+
+def test_get_git_user_falls_back_to_global_config(tmp_path, monkeypatch):
+    # Isolate git's global config resolution so this test doesn't depend on
+    # (or mutate) the real developer machine's actual ~/.gitconfig.
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir()
+    fake_global_config = fake_home / "fake_gitconfig"
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("USERPROFILE", str(fake_home))
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(fake_global_config))
+
+    subprocess.run(
+        ["git", "config", "--global", "user.name", "Global User"],
+        check=True,
+    )
+
+    repo = tmp_path / "repo_no_local_name"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    (repo / "file.txt").write_text("test")
+    subprocess.run(["git", "add", "file.txt"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "initial"], cwd=repo, check=True)
+
+    assert get_git_user(repo) == "Global User"
