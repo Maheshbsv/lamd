@@ -12,10 +12,10 @@ Source requirements: `docs/lamd/brd.md`, `docs/lamd/prd.md`,
 
 ## 2. Distribution & Runtime Architecture
 
-- **Install**: `npx github:<owner>/<repo> init` — a thin Node CLI, published
-  from the project's own GitHub repo (exact path TBD, see §8), with no
-  logic beyond scaffolding and registration (all substantive logic lives in
-  the Python server). On run it:
+- **Install**: `npx github:Maheshbsv/lamd init` — a thin Node CLI, run
+  directly from the project's GitHub repo (no npm registry publish for
+  MVP — see §8), with no logic beyond scaffolding and registration (all
+  substantive logic lives in the Python server). On run it:
   1. Creates `.lamd/rules/`, `.lamd/decisions/`, `.lamd/sessions/` in the
      current project.
   2. Writes a starter `.lamd/rules/01-framework.md`.
@@ -91,11 +91,15 @@ The server injects directives instructing Claude to:
 - Coverage targets: decision/session file writers, BM25 ranking + recency
   decay behavior, and the project-root walk-up detection logic.
 
-## 8. Follow-ups (out of scope for this spec)
+## 8. Distribution Decisions
 
-- This repository is not yet a git repository (`git init` was previously
-  deferred to the user) — needed before the "commit to git" step of any
-  spec/plan workflow can run, and before `.lamd/` itself is meaningful.
-- The npx installer CLI's own packaging/publish details (GitHub repo path,
-  npm package name, versioning) are not yet decided — deferred until
-  implementation planning.
+- **Repo**: `Maheshbsv/lamd` on GitHub (already initialized with this
+  remote); the "commit to git" step of the spec/plan workflow and
+  `.lamd/` itself are meaningful as of this repo.
+- **No npm registry publish for MVP**: the installer is invoked via
+  `npx github:Maheshbsv/lamd init` directly against the GitHub repo. No
+  package name to reserve, no publish pipeline to maintain.
+- **No versioning for MVP**: the installer always runs from `main` HEAD.
+  Git-tag-pinned installs (`npx github:Maheshbsv/lamd#v0.1.0 init`) can be
+  added later if breaking changes become a problem, but are not needed
+  now.
