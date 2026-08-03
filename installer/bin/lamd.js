@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
+
 import { registerMcpServer } from "../src/mcpConfig.js";
 import { scaffold } from "../src/scaffold.js";
 
@@ -16,3 +18,13 @@ const configPath = registerMcpServer(projectRoot);
 console.log(`Created ${lamdDir}`);
 console.log(`Wrote starter rule: ${starterRulePath}`);
 console.log(`Registered LAMD MCP server in ${configPath}`);
+
+try {
+  execFileSync("uvx", ["--version"], { stdio: "ignore" });
+} catch {
+  console.warn(
+    "Warning: `uvx` was not found on PATH. The LAMD MCP server is launched " +
+      "via uvx, so install uv before using it: " +
+      "https://docs.astral.sh/uv/getting-started/installation/"
+  );
+}

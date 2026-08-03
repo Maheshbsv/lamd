@@ -27,7 +27,6 @@ test("scaffold writes a starter rule file", () => {
 
 test("scaffold does not overwrite an existing starter rule file", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
-  scaffold(projectRoot);
   const { starterRulePath } = scaffold(projectRoot);
   writeFileSync(starterRulePath, "custom content", "utf8");
 

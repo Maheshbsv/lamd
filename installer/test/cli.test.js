@@ -18,6 +18,23 @@ test("lamd init scaffolds .lamd/ and writes .mcp.json", () => {
   assert.ok(existsSync(join(projectRoot, ".mcp.json")));
 });
 
+test("lamd init succeeds (exit 0) even when uvx is not on PATH", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  // The test sandbox never installs Python tooling, so uvx is expected to
+  // be absent from PATH here already. Exercise it explicitly (rather than
+  // relying on that being implicitly true) by scrubbing PATH entirely for
+  // the child process. Use the absolute node executable path so clearing
+  // PATH doesn't also prevent locating `node` itself.
+  const output = execFileSync(process.execPath, [CLI_PATH, "init"], {
+    cwd: projectRoot,
+    env: { ...process.env, PATH: "", Path: "" },
+  });
+
+  assert.match(output.toString(), /Registered LAMD MCP server/);
+  assert.ok(existsSync(join(projectRoot, ".mcp.json")));
+});
+
 test("lamd with an unknown command exits non-zero", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
 
