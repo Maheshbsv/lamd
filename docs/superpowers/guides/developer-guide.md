@@ -502,15 +502,39 @@ glance than one loop with an if/elif that tracks "found either yet."
 
 ### 6.2 `git_info.py` — "who am I, and where's my work?"
 
-This is the thinnest possible wrapper around two `git` subcommands:
-`git config user.name` and `git rev-parse --abbrev-ref HEAD`. Resist any
-temptation to parse `.git/config` or `.git/HEAD` by hand — those are
-implementation details of git's internal storage that can change, whereas
-the `git` CLI's output format is a stable public contract. **Always shell
-out to the real binary for anything git-related.** This is a rule worth
-carrying into every future project: never hand-roll a parser for another
-tool's internal file formats when that tool ships a CLI that already
-exposes the same information safely.
+This is the thinnest possible wrapper around three `git` subcommands:
+`git rev-parse --is-inside-work-tree`, `git config user.name`, and
+`git rev-parse --abbrev-ref HEAD`. Resist any temptation to parse
+`.git/config` or `.git/HEAD` by hand — those are implementation details of
+git's internal storage that can change, whereas the `git` CLI's output
+format is a stable public contract. **Always shell out to the real binary
+for anything git-related.** This is a rule worth carrying into every future
+project: never hand-roll a parser for another tool's internal file formats
+when that tool ships a CLI that already exposes the same information
+safely.
+
+**A real bug that shipped and was caught in review, worth internalizing:**
+an early version of `get_git_user` ran `git config --local user.name`
+instead of plain `git config user.name`. That looked reasonable — `--local`
+makes `get_git_user` fail deterministically outside a real git repo, which
+is exactly what one test wanted. But `--local` *only* reads that repo's own
+`.git/config`, ignoring `~/.gitconfig` entirely — and almost every real
+developer sets `user.name` **globally**, once, and never again per-repo.
+Shipped as `--local`, the save tools would have failed with "could not
+determine your git identity" for nearly every real user, while still
+passing every test on the author's own machine (which happened to have a
+local override in the test fixtures, not in real usage). The fix needed
+*two* checks instead of one: first confirm you're actually inside a git
+working tree at all (`git rev-parse --is-inside-work-tree`, which fails
+outside any repo regardless of global config), *then* read
+`git config user.name` with no scope flag, which correctly resolves
+local-overrides-global exactly the way a human running `git commit` would
+expect. The lesson: when a flag makes one specific test pass, ask what
+population of *real users* that flag silently breaks — a test that passes
+for the wrong reason is worse than a test that fails honestly. And when you
+add a test fixture, ask whether it accidentally makes the "normal" case
+(global config only) untestable, since that's exactly what hid this bug
+until a later review caught it.
 
 ### 6.3 `storage.py` — the only code that touches disk for memory files
 
@@ -580,6 +604,39 @@ ranking algorithm in about thirty seconds. That's YAGNI in practice: don't
 reach for a more sophisticated ranking model until you have evidence the
 simple one is actually insufficient.
 
+**A real bug worth studying: `raw_score * decay` isn't always safe.**
+BM25's IDF term (`log((N - df + 0.5) / (df + 0.5))`) goes *negative* when a
+query term appears in more than half the corpus — which happens easily on
+a small, early-stage `.lamd/decisions/` folder with only a handful of
+records and some overlapping vocabulary. A first implementation multiplied
+`raw_score * decay` directly, and on a corpus with negative scores this
+**inverts** the intended ranking: multiplying a negative number by a
+`decay` factor less than 1 makes it *less* negative — i.e. numerically
+larger — so an *older* record could end up ranked above a more recent,
+equally-relevant one. A tempting "fix" is `abs(raw_score * decay)`, which
+does make the specific failing test pass — but it's wrong in a more
+consequential way: it collapses all negative scores into positive territory,
+so a barely-relevant record that happens to share one very common word with
+the query (and therefore gets a strongly negative BM25 score) can end up
+with a *larger* absolute value than a genuinely relevant record's small
+positive score, outranking it. The actual fix has to be sign-aware:
+recency decay should shrink a positive (relevant-signal) score toward zero
+with age, exactly as before, but push a negative (weak-signal) score
+*further* negative with age, never letting it cross into positive
+territory:
+
+```python
+signed_score = raw_score * decay if raw_score >= 0 else raw_score / decay
+```
+
+This guarantees a positive-signal score can never lose to a negative-signal
+one, no matter how old the positive one is. The broader lesson: **when a
+"fix" makes a specific test pass, ask what it does on inputs the test
+doesn't cover.** `abs()` is a classic shape of self-serving patch — locally
+plausible, globally wrong — and the only way to catch it is to reason about
+(or empirically construct) a case the original test didn't exercise, not to
+trust that green tests mean correct code.
+
 ### 6.5 `mcp_app.py` — where everything gets wired together
 
 This file is intentionally the *last* thing you build, and it's
@@ -591,6 +648,42 @@ BM25 logic directly inside a function decorated with `@mcp.tool()`, stop —
 that logic belongs in `storage.py` or `search.py`, testable on its own,
 without needing to spin up an MCP server to exercise it. Section 8 goes
 deep on what `@mcp.tool()` and `@mcp.resource()` actually do.
+
+**A real security bug worth studying: MCP resource template parameters are
+untrusted input.** `get_rule`'s URI template is `lamd://rules/{name}` —
+FastMCP fills `name` from whatever URI the *model* asks to fetch. An early
+version did `path = root / ".lamd" / "rules" / name; return
+path.read_text(...)` with no validation at all. That looks harmless — this
+is "our own" server talking to "our own" files — until you remember that
+`name` isn't typed by a human at a terminal; it's supplied by a language
+model that could be influenced by adversarial content sitting inside a
+retrieved document, a comment in someone else's code, or just an honest
+mistake in what the model decides to request. A `name` of
+`"..\\..\\..\\secrets.json"` or an absolute path like
+`"C:\\Users\\me\\.ssh\\id_rsa"` sails straight past FastMCP's own
+`[^/]+` template-matching regex (it only blocks literal forward slashes,
+not backslashes or drive letters), and `pathlib.Path` happily resolves the
+join outside the intended directory, or discards the base path entirely
+for an absolute right-hand side. The result: an MCP tool that was supposed
+to read one rules folder becomes an arbitrary-file-read primitive. The fix
+is the standard "confinement" pattern for any code that turns caller input
+into a filesystem path — resolve both sides and check containment, not
+just presence of `..`:
+
+```python
+rules_dir = (root / ".lamd" / "rules").resolve()
+candidate = (rules_dir / name).resolve()
+if not candidate.is_relative_to(rules_dir):
+    raise RuntimeError("Invalid rule name")
+```
+
+The general principle: **any function where caller-supplied input becomes
+part of a filesystem path, URL, or shell command is an external-input
+boundary**, even when the "caller" is a component you wrote yourself,
+because the *data flowing through* that caller may not be something you
+control end to end. Treat "the model decided what to ask for" the same way
+you'd treat "the HTTP request body decided" — validate at the boundary,
+don't trust that the call site looks internal.
 
 ---
 
@@ -912,19 +1005,51 @@ That first line of `bin/lamd.js` is a **shebang** — on Unix-like systems
 (Linux, macOS), it tells the shell "run this file using whatever `node`
 resolves to on the current `PATH`," which is what lets the file be executed
 directly (`./bin/lamd.js`) instead of always needing `node bin/lamd.js`.
-Combined with `package.json`'s:
+Combined with a `package.json`'s:
 
 ```json
-"bin": { "lamd": "./bin/lamd.js" }
+"bin": { "lamd": "./installer/bin/lamd.js" }
 ```
 
 ...this is what makes `npx github:Maheshbsv/lamd init` work at all: `npx`
 resolves the package's `bin` entry and executes it as the `lamd` command,
 with `init` passed through as `process.argv[2]`. On Windows, npm generates
-a small `.cmd` shim automatically at install time that achieves the same
-effect — you don't need to do anything platform-specific yourself, but it's
-worth knowing *why* the shebang line, though functionally inert on
+a small `.cmd`/`.ps1` shim automatically at install time that achieves the
+same effect — you don't need to do anything platform-specific yourself, but
+it's worth knowing *why* the shebang line, though functionally inert on
 Windows, is still there and still correct to include.
+
+**A real packaging bug worth studying: `bin` only counts at the repo
+root.** The first cut of this project put `package.json` (with its `bin`
+field) inside `installer/`, alongside `installer/bin/lamd.js` — which reads
+as perfectly reasonable, since that's where all the installer's code lives.
+It even passed every test, because the tests invoke `bin/lamd.js` directly
+with `node bin/lamd.js` / `execFileSync`, never through npm's own `bin`
+resolution. But the *documented, user-facing* install command is
+`npx github:Maheshbsv/lamd init` — and npm's `github:owner/repo` install
+spec fetches the repository and reads `package.json` **at the repository
+root only**. There is no subdirectory mechanism for it (that's a `uv`/`pip`
+feature — which is exactly why the *Python* side's `uvx --from
+git+https://...#subdirectory=server` legitimately works, and why it's easy
+to assume, wrongly, that the Node side has the same escape hatch). With
+`package.json` sitting one level down in `installer/`, the documented
+one-line install command would fail outright with something like "does not
+contain a package.json file" — a total, silent failure of the only
+user-facing entrypoint, invisible to every test in the suite because none
+of them actually exercised installation *the way a real user would run it*
+(`npx github:...`, not a direct `node` invocation). The fix: a `package.json`
+at the true repository root, with `"bin": {"lamd":
+"./installer/bin/lamd.js"}` pointing back down into the subdirectory where
+the actual file still lives — `bin`'s path is just a relative path from
+wherever the manifest sits, so the code doesn't need to move, only the
+manifest that advertises it. The broader lesson, worth carrying into any
+future CLI packaging work: **a test suite that only calls your code
+directly can give 100% green while the actual, documented, user-facing
+install path is completely broken.** When a project's real entry point is
+"a stranger runs one command from your README," write at least one test —
+or do at least one manual dry run — that goes through that literal command
+or its closest local equivalent (`npm pack` + `npm install` from the
+tarball, in this case), not just the internals it eventually calls.
 
 ---
 
