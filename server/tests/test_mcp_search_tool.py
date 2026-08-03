@@ -23,6 +23,32 @@ def test_get_rule_returns_file_contents(project):
     assert get_rule("01-framework.md") == "# Use React"
 
 
+def test_get_rule_rejects_relative_traversal(project):
+    secret = project / "secrets.txt"
+    secret.write_text("top-secret", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="Invalid rule name"):
+        get_rule("..\\..\\secrets.txt")
+
+
+def test_get_rule_rejects_absolute_path(project, tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("top-secret", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="Invalid rule name"):
+        get_rule(str(outside))
+
+
+def test_get_rule_errors_when_no_lamd_dir(tmp_path, monkeypatch):
+    empty_dir = tmp_path / "no_lamd"
+    empty_dir.mkdir()
+    (empty_dir / ".git").mkdir()
+    monkeypatch.chdir(empty_dir)
+
+    with pytest.raises(RuntimeError, match=MISSING_LAMD_ERROR):
+        get_rule("01-framework.md")
+
+
 def test_lamd_search_memory_returns_no_match_message_when_empty(project):
     assert lamd_search_memory("anything") == "No matching memory found."
 

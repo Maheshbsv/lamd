@@ -28,8 +28,11 @@ def _require_lamd_dir(root: Path) -> None:
 def get_rule(name: str) -> str:
     root = _project_root()
     _require_lamd_dir(root)
-    path = root / ".lamd" / "rules" / name
-    return path.read_text(encoding="utf-8")
+    rules_dir = (root / ".lamd" / "rules").resolve()
+    candidate = (rules_dir / name).resolve()
+    if not candidate.is_relative_to(rules_dir):
+        raise RuntimeError(f"Invalid rule name: {name!r}")
+    return candidate.read_text(encoding="utf-8")
 
 
 @mcp.tool()
