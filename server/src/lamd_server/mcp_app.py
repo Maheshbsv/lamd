@@ -3,9 +3,10 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from .git_info import GitUnavailableError, get_current_branch, get_git_user
 from .project_root import find_project_root
 from .search import search_memory
-from .storage import read_memory_records
+from .storage import read_memory_records, write_decision, write_session
 
 mcp = FastMCP("lamd")
 
@@ -46,3 +47,38 @@ def lamd_search_memory(query: str) -> str:
     return "\n\n".join(
         f"[{r.kind}] {r.path.name} (score={r.score:.2f})\n{r.snippet}" for r in results
     )
+
+
+def _git_context(root: Path) -> tuple[str, str]:
+    try:
+        author = get_git_user(root)
+        branch = get_current_branch(root)
+    except GitUnavailableError as exc:
+        raise RuntimeError(
+            "Could not determine your Git identity "
+            f"({exc}). Please tell me your name, and run "
+            '`git config user.name "Your Name"` so this is automatic next time.'
+        ) from exc
+    return author, branch
+
+
+@mcp.tool()
+def lamd_save_decision(decision: str, reason: str, module: str) -> str:
+    root = _project_root()
+    _require_lamd_dir(root)
+    author, branch = _git_context(root)
+    path = write_decision(root, decision, reason, module, author, branch)
+    return f"Saved decision to {path.relative_to(root)}"
+
+
+@mcp.tool()
+def lamd_save_session(summary: str, next_steps: str, files_touched: list[str]) -> str:
+    root = _project_root()
+    _require_lamd_dir(root)
+    author, branch = _git_context(root)
+    path = write_session(root, summary, next_steps, files_touched, author, branch)
+    return f"Saved session to {path.relative_to(root)}"
+
+
+def main() -> None:
+    mcp.run()
