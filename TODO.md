@@ -1,0 +1,2 @@
+- Do not start an implementation without a proper Sprint document (Create/Reviewed/Approved)
+- Brainstorm - Spec plan writing - Sprint conversion - User stories with Defined goals
