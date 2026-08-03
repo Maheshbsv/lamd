@@ -40,7 +40,8 @@ def search_memory(
     for record, raw_score in zip(records, raw_scores):
         age_days = max((today - record.date).days, 0)
         decay = 0.5 ** (age_days / RECENCY_HALF_LIFE_DAYS)
-        scored.append((record, abs(raw_score * decay)))
+        signed_score = raw_score * decay if raw_score >= 0 else raw_score / decay
+        scored.append((record, signed_score))
 
     scored.sort(key=lambda pair: pair[1], reverse=True)
 
