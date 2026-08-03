@@ -16,6 +16,19 @@ def _slugify(text: str) -> str:
     return slug or "untitled"
 
 
+def _next_available_path(path: Path) -> Path:
+    """Return path, or path with an incrementing numeric suffix if it exists."""
+    if not path.exists():
+        return path
+    stem, suffix = path.stem, path.suffix
+    counter = 2
+    while True:
+        candidate = path.with_name(f"{stem}-{counter}{suffix}")
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
 def list_rules(root: Path) -> list[Path]:
     rules_dir = root / ".lamd" / "rules"
     if not rules_dir.is_dir():
@@ -46,6 +59,7 @@ def write_decision(
         "branch": branch,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
+    path = _next_available_path(path)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path
 
@@ -78,6 +92,7 @@ def write_session(
         + f"{summary}\n\n## Next Steps\n\n{next_steps}\n"
     )
     path.parent.mkdir(parents=True, exist_ok=True)
+    path = _next_available_path(path)
     path.write_text(content, encoding="utf-8")
     return path
 

@@ -43,3 +43,31 @@ def test_write_decision_creates_expected_file_and_content(tmp_path):
         "date": "2026-08-15",
         "branch": "feature/lamd",
     }
+
+
+def test_write_decision_does_not_overwrite_on_slug_collision(tmp_path):
+    fixed_now = datetime(2026, 8, 15, 13, 45, 30, tzinfo=timezone.utc)
+
+    first = write_decision(
+        tmp_path,
+        decision="Use React",
+        reason="Team already knows it",
+        module="frontend",
+        author="Test User",
+        branch="feature/lamd",
+        now=fixed_now,
+    )
+    second = write_decision(
+        tmp_path,
+        decision="Use React",
+        reason="Team already knows it",
+        module="frontend",
+        author="Test User",
+        branch="feature/lamd",
+        now=fixed_now,
+    )
+
+    assert first != second
+    assert first.exists()
+    assert second.exists()
+    assert second.name == "20260815-134530-use-react-2.json"

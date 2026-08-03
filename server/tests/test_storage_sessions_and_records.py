@@ -30,6 +30,34 @@ def test_write_session_creates_expected_file_and_content(tmp_path):
     assert "Wire up the API call" in content
 
 
+def test_write_session_does_not_overwrite_on_slug_collision(tmp_path):
+    fixed_now = datetime(2026, 8, 15, 9, 0, 0, tzinfo=timezone.utc)
+
+    first = write_session(
+        tmp_path,
+        summary="Implemented the login form",
+        next_steps="Wire up the API call",
+        files_touched=["src/Login.tsx"],
+        author="Test User",
+        branch="feature/login",
+        now=fixed_now,
+    )
+    second = write_session(
+        tmp_path,
+        summary="Implemented the login form",
+        next_steps="Wire up the API call",
+        files_touched=["src/Login.tsx"],
+        author="Test User",
+        branch="feature/login",
+        now=fixed_now,
+    )
+
+    assert first != second
+    assert first.exists()
+    assert second.exists()
+    assert second.name == "2026-08-15-implemented-the-login-form-2.md"
+
+
 def test_read_memory_records_reads_decisions_and_sessions(tmp_path):
     now = datetime(2026, 8, 15, 9, 0, 0, tzinfo=timezone.utc)
     write_decision(
