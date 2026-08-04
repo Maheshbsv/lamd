@@ -23,8 +23,11 @@ export function registerDecisionInstruction(projectRoot) {
   }
 
   const content = readFileSync(claudeMdPath, "utf8");
-  const beginIndex = content.indexOf(BEGIN_MARKER);
   const endIndex = content.indexOf(END_MARKER);
+  const beginIndex =
+    endIndex === -1
+      ? content.indexOf(BEGIN_MARKER)
+      : content.lastIndexOf(BEGIN_MARKER, endIndex);
 
   if (beginIndex === -1 || endIndex === -1 || endIndex < beginIndex) {
     const separator = content.endsWith("\n") ? "\n" : "\n\n";

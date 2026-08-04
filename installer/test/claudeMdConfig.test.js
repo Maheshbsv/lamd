@@ -77,3 +77,24 @@ test("registerDecisionInstruction appends a fresh block when the LAMD markers ar
   assert.equal(occurrences, 2, "expected the original malformed marker plus one freshly appended block");
   assert.ok(content.includes(END_MARKER));
 });
+
+test("registerDecisionInstruction does not clobber user content when lamd init is run twice after a malformed marker", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-claudemd-"));
+  const claudeMdPath = join(projectRoot, "CLAUDE.md");
+  writeFileSync(
+    claudeMdPath,
+    `# My Project\n\n${BEGIN_MARKER}\nHand-edited, marker never closed.\n`,
+    "utf8"
+  );
+
+  registerDecisionInstruction(projectRoot); // run 1: appends a fresh, well-formed block
+  registerDecisionInstruction(projectRoot); // run 2: must not touch the orphaned content
+
+  const content = readFileSync(claudeMdPath, "utf8");
+  assert.ok(
+    content.includes("Hand-edited, marker never closed."),
+    "second run must not delete the user's hand-edited orphaned content"
+  );
+  const occurrences = content.split(BEGIN_MARKER).length - 1;
+  assert.equal(occurrences, 2, "orphaned BEGIN plus the one well-formed block's BEGIN");
+});
