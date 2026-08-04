@@ -23,7 +23,7 @@
 - Modify: `server/pyproject.toml:6` (dependency pin)
 - Modify: `server/uv.lock` (regenerated, not hand-edited)
 - Modify: `server/src/lamd_server/mcp_app.py:4,11` (import + instantiation)
-- Test: `server/tests/*.py` (existing 7 files, 21 tests — used as regression gate, not modified)
+- Test: `server/tests/*.py` (existing 7 files, 40 tests — used as regression gate, not modified)
 
 **Interfaces:**
 - Consumes: nothing from other tasks (first task)
@@ -32,7 +32,7 @@
 - [ ] **Step 1: Confirm the baseline passes before touching anything**
 
 Run: `cd server && uv run pytest -v`
-Expected: 21 passed (all existing tests green on `mcp` 1.29.0, confirming the starting point is clean)
+Expected: 40 passed (all existing tests green on `mcp` 1.29.0, confirming the starting point is clean)
 
 - [ ] **Step 2: Bump the dependency pin**
 
@@ -94,7 +94,7 @@ No other lines in the file change — decorators, function bodies, and `mcp.run(
 - [ ] **Step 5: Run the full test suite against the migrated code**
 
 Run: `cd server && uv run pytest -v`
-Expected: 21 passed. If anything fails, do not proceed to Task 2 — the failure means a v2 behavior change wasn't captured by this plan and needs investigating before continuing.
+Expected: 40 passed. If anything fails, do not proceed to Task 2 — the failure means a v2 behavior change wasn't captured by this plan and needs investigating before continuing.
 
 - [ ] **Step 6: Commit**
 
@@ -167,7 +167,7 @@ Expected: 2 passed
 - [ ] **Step 4: Run the full suite one more time**
 
 Run: `cd server && uv run pytest -v`
-Expected: 23 passed (21 pre-existing + 2 new)
+Expected: 42 passed (40 pre-existing + 2 new)
 
 - [ ] **Step 5: Commit**
 
