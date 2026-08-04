@@ -85,3 +85,25 @@ test("the registered SessionStart hook command path matches the actual scaffolde
     "scaffolded hook script must exist at the path referenced by the registered command"
   );
 });
+
+test("lamd init writes the LAMD decision instruction block into CLAUDE.md", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+
+  const claudeMdPath = join(projectRoot, "CLAUDE.md");
+  assert.ok(existsSync(claudeMdPath));
+  const content = readFileSync(claudeMdPath, "utf8");
+  assert.ok(content.includes("lamd_save_decision"));
+});
+
+test("lamd init run twice does not duplicate the CLAUDE.md decision instruction block", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+
+  const content = readFileSync(join(projectRoot, "CLAUDE.md"), "utf8");
+  const occurrences = content.split("<!-- LAMD:BEGIN -->").length - 1;
+  assert.equal(occurrences, 1);
+});

@@ -21,5 +21,14 @@ registered in `.claude/settings.json`) that injects the contents of
 tool call required. The MCP server itself runs via `uvx` — no manual
 Python package install required.
 
+`lamd init` also inserts a `Project Memory (LAMD)` block into `CLAUDE.md`
+(creating the file if it doesn't exist yet, or appending to it if it does —
+your existing content is never touched). This block instructs Claude to
+call `lamd_save_decision` whenever an architectural decision is finalized.
+It's the only reliable nudge LAMD has for decision capture today, so if you
+remove it, Claude falls back to noticing the `lamd_save_decision` tool on
+its own judgment rather than being reminded — treat it as load-bearing, not
+decorative.
+
 See `docs/superpowers/specs/2026-08-01-lamd-core-design.md` for the full
 design.
