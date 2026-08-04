@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,4 +41,25 @@ test("lamd with an unknown command exits non-zero", () => {
   assert.throws(() => {
     execFileSync("node", [CLI_PATH, "bogus"], { cwd: projectRoot });
   });
+});
+
+test("lamd init scaffolds the SessionStart hook and registers it in .claude/settings.json", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+
+  assert.ok(existsSync(join(projectRoot, ".claude", "hooks", "lamd_inject_rules.py")));
+  assert.ok(existsSync(join(projectRoot, ".claude", "settings.json")));
+});
+
+test("lamd init run twice does not duplicate the SessionStart hook entry", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+
+  const settings = JSON.parse(
+    readFileSync(join(projectRoot, ".claude", "settings.json"), "utf8")
+  );
+  assert.equal(settings.hooks.SessionStart.length, 1);
 });

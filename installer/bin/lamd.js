@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 
+import { registerSessionStartHook } from "../src/hookConfig.js";
 import { registerMcpServer } from "../src/mcpConfig.js";
 import { scaffold } from "../src/scaffold.js";
 
@@ -12,12 +13,15 @@ if (command !== "init") {
 }
 
 const projectRoot = process.cwd();
-const { lamdDir, starterRulePath } = scaffold(projectRoot);
+const { lamdDir, starterRulePath, hookScriptPath } = scaffold(projectRoot);
 const configPath = registerMcpServer(projectRoot);
+const settingsPath = registerSessionStartHook(projectRoot);
 
 console.log(`Created ${lamdDir}`);
 console.log(`Wrote starter rule: ${starterRulePath}`);
+console.log(`Wrote SessionStart hook: ${hookScriptPath}`);
 console.log(`Registered LAMD MCP server in ${configPath}`);
+console.log(`Registered SessionStart hook in ${settingsPath}`);
 
 try {
   execFileSync("uvx", ["--version"], { stdio: "ignore" });
