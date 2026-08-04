@@ -121,7 +121,7 @@ EOF
 - Create: `server/tests/test_mcp_registration.py`
 
 **Interfaces:**
-- Consumes: `mcp` (the module-level `MCPServer` instance from `lamd_server.mcp_app`, produced by Task 1) — specifically its async `list_tools()`, `list_resources()`, and `list_resource_templates()` methods, which return objects with `.name`, `.uri`, and `.uriTemplate` attributes respectively (verified interactively against the installed SDK: `list_tools()` returns objects with `.name`, `list_resource_templates()` returns objects with `.uriTemplate`)
+- Consumes: `mcp` (the module-level `MCPServer` instance from `lamd_server.mcp_app`, produced by Task 1) — specifically its async `list_tools()`, `list_resources()`, and `list_resource_templates()` methods, which return objects with `.name`, `.uri`, and `.uri_template` attributes respectively (verified interactively against the installed SDK: `list_tools()` returns objects with `.name`, `list_resource_templates()` returns objects with `.uri_template`)
 - Produces: nothing consumed by later tasks (last task)
 
 This test is a regression/verification check on SDK registration behavior itself (does `@mcp.tool()`/`@mcp.resource()` still register against the `MCPServer` instance the way it did against `FastMCP`), which the existing tests don't cover — they only call the decorated functions directly as plain Python callables, never touching `mcp.list_tools()` / `mcp.list_resources()`. Because the behavior under test is already correct after Task 1, there's no red step from wrong production code — the "fails" step below is a real failure (missing file), not a placeholder.
@@ -155,7 +155,7 @@ def test_resources_are_registered():
     assert resource_uris == {"lamd://rules"}
 
     templates = asyncio.run(mcp.list_resource_templates())
-    template_uris = {t.uriTemplate for t in templates}
+    template_uris = {t.uri_template for t in templates}
     assert template_uris == {"lamd://rules/{name}"}
 ```
 

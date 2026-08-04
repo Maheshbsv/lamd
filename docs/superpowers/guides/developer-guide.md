@@ -21,7 +21,7 @@
 5. [Test-driven development, for real this time](#5-test-driven-development-for-real-this-time)
 6. [Building the server, module by module](#6-building-the-server-module-by-module)
 7. [Context engineering: the actual hard part](#7-context-engineering-the-actual-hard-part)
-8. [MCP deep dive: resources, tools, and the FastMCP SDK](#8-mcp-deep-dive-resources-tools-and-the-fastmcp-sdk)
+8. [MCP deep dive: resources, tools, and the MCP Server SDK](#8-mcp-deep-dive-resources-tools-and-the-mcp-server-sdk)
 9. [Skills-file thinking: rules as prompts, prompts as code](#9-skills-file-thinking-rules-as-prompts-prompts-as-code)
 10. [Building the installer: modern Node.js CLI development](#10-building-the-installer-modern-nodejs-cli-development)
 11. [Git and commit conventions you'll actually use](#11-git-and-commit-conventions-youll-actually-use)
@@ -772,30 +772,30 @@ guarantee.
 
 ---
 
-## 8. MCP deep dive: resources, tools, and the FastMCP SDK
+## 8. MCP deep dive: resources, tools, and the MCP Server SDK
 
 **MCP (Model Context Protocol)** is an open protocol for connecting an AI
 client (here, Claude Code) to external tools and data sources over a
 standard interface — think of it as the plumbing that lets Claude call
 `lamd_save_decision` the same structured way regardless of what language or
 process implements it on the other end. You're using the *official* `mcp`
-Python SDK's `FastMCP` class, which gives you a decorator-based API on top
-of the raw protocol — conceptually the same relationship Flask has to raw
-WSGI, or FastAPI has to raw ASGI: you write plain functions, decorate them,
-and the framework handles protocol serialization, request routing, and
-schema generation for you.
+Python SDK's `MCPServer` class (formerly `FastMCP` in SDK v1.x), which gives
+you a decorator-based API on top of the raw protocol — conceptually the
+same relationship Flask has to raw WSGI, or FastAPI has to raw ASGI: you
+write plain functions, decorate them, and the framework handles protocol
+serialization, request routing, and schema generation for you.
 
 ### 8.1 The three primitives
 
 - **Resources** (`@mcp.resource("lamd://rules/{name}")`) — addressable,
   read-only content the client can fetch by URI. The `{name}` in the URI is
-  a *template variable*: FastMCP inspects your function's signature
+  a *template variable*: `MCPServer` inspects your function's signature
   (`def get_rule(name: str) -> str`) and matches it to the template, so
-  when the client resolves `lamd://rules/01-framework.md`, FastMCP calls
+  when the client resolves `lamd://rules/01-framework.md`, `MCPServer` calls
   `get_rule(name="01-framework.md")` for you. You never parse the URI by
   hand.
 - **Tools** (`@mcp.tool()`) — functions the model can *invoke*, with
-  arguments, mid-conversation, when it decides it needs to. FastMCP
+  arguments, mid-conversation, when it decides it needs to. `MCPServer`
   generates the tool's JSON-schema description straight from your Python
   type hints — this is another reason type hints in this codebase aren't
   optional decoration: `def lamd_save_decision(decision: str, reason: str,
@@ -811,7 +811,7 @@ schema generation for you.
 ### 8.2 How the server actually starts
 
 ```python
-mcp = FastMCP("lamd")
+mcp = MCPServer("lamd")
 
 @mcp.tool()
 def lamd_search_memory(query: str) -> str:
@@ -844,13 +844,21 @@ runnable commands after `pip install`.
 You'll notice none of the tests in Task 6 or 7 call `main()` or `mcp.run()`
 — they call the underlying functions (`get_rule(...)`,
 `lamd_search_memory(...)`) directly, as plain Python. The `@mcp.tool()` and
-`@mcp.resource()` decorators register the function with the FastMCP app
+`@mcp.resource()` decorators register the function with the `MCPServer` app
 *and* still leave it callable as an ordinary function underneath. That's a
-deliberate FastMCP design choice, and it's exactly why this codebase can
+deliberate `MCPServer` design choice, and it's exactly why this codebase can
 have thorough test coverage on the actual MCP-exposed behavior without ever
 needing to spin up a real MCP client/server connection in the test suite —
 another example of the "design for isolation" principle from the brainstorming
 skill's checklist paying off concretely.
+
+One intentional exception: `server/tests/test_mcp_registration.py` does call
+`mcp.list_tools()`, `mcp.list_resources()`, and `mcp.list_resource_templates()`
+directly on the live `MCPServer` instance. This is deliberate — it exercises
+SDK *registration* behavior on the server instance itself (never the
+transport/network layer that `mcp.run()` starts), which is exactly what
+would catch an SDK rename or a registration break that calling the
+decorated functions directly wouldn't catch.
 
 ---
 

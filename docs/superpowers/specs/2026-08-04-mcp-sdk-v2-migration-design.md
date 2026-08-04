@@ -47,7 +47,7 @@ No other source file changes.
 
 ## Testing
 
-The existing 7 test files (21 tests) under `server/tests/` already exercise
+The existing 7 test files (40 tests) under `server/tests/` already exercise
 the decorated functions directly (e.g. `lamd_save_decision(...)`,
 `get_rule(...)`, `lamd_search_memory(...)`) rather than through a simulated
 MCP client. This works because `@mcp.tool()` / `@mcp.resource()` register the
