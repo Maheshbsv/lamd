@@ -36,7 +36,7 @@ export function registerDecisionInstruction(projectRoot) {
 
   if (!existsSync(claudeMdPath)) {
     writeFileSync(claudeMdPath, `${buildBlock("\n")}\n`, "utf8");
-    return claudeMdPath;
+    return { path: claudeMdPath, action: "created" };
   }
 
   const content = readFileSync(claudeMdPath, "utf8");
@@ -52,11 +52,13 @@ export function registerDecisionInstruction(projectRoot) {
   if (beginIndex === -1 || endIndex === -1 || endIndex < beginIndex) {
     const separator = /\r?\n$/.test(content) ? eol : eol + eol;
     writeFileSync(claudeMdPath, `${content}${separator}${block}${eol}`, "utf8");
-    return claudeMdPath;
+    return { path: claudeMdPath, action: "appended" };
   }
 
   const before = content.slice(0, beginIndex);
   const after = content.slice(endIndex + END_MARKER.length);
-  writeFileSync(claudeMdPath, `${before}${block}${after}`, "utf8");
-  return claudeMdPath;
+  const replacement = `${before}${block}${after}`;
+  const action = replacement === content ? "unchanged" : "updated";
+  writeFileSync(claudeMdPath, replacement, "utf8");
+  return { path: claudeMdPath, action };
 }

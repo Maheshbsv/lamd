@@ -12,8 +12,9 @@ const END_MARKER = "<!-- LAMD:END -->";
 test("registerDecisionInstruction creates CLAUDE.md with the LAMD block when none exists", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "lamd-claudemd-"));
 
-  const claudeMdPath = registerDecisionInstruction(projectRoot);
+  const { path: claudeMdPath, action } = registerDecisionInstruction(projectRoot);
 
+  assert.equal(action, "created");
   const content = readFileSync(claudeMdPath, "utf8");
   assert.ok(content.includes(BEGIN_MARKER));
   assert.ok(content.includes(END_MARKER));
@@ -25,19 +26,21 @@ test("registerDecisionInstruction appends the block to an existing CLAUDE.md wit
   const claudeMdPath = join(projectRoot, "CLAUDE.md");
   writeFileSync(claudeMdPath, "# My Project\n\nSome existing instructions.\n", "utf8");
 
-  registerDecisionInstruction(projectRoot);
+  const { action } = registerDecisionInstruction(projectRoot);
 
+  assert.equal(action, "appended");
   const content = readFileSync(claudeMdPath, "utf8");
   assert.ok(content.startsWith("# My Project\n\nSome existing instructions.\n"));
   assert.ok(content.includes(BEGIN_MARKER));
 });
 
-test("registerDecisionInstruction is idempotent when re-run with unchanged content", () => {
+test("registerDecisionInstruction is idempotent when re-run with unchanged content, and reports unchanged", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "lamd-claudemd-"));
 
   registerDecisionInstruction(projectRoot);
-  const claudeMdPath = registerDecisionInstruction(projectRoot);
+  const { path: claudeMdPath, action } = registerDecisionInstruction(projectRoot);
 
+  assert.equal(action, "unchanged");
   const content = readFileSync(claudeMdPath, "utf8");
   const occurrences = content.split(BEGIN_MARKER).length - 1;
   assert.equal(occurrences, 1);
@@ -52,8 +55,9 @@ test("registerDecisionInstruction replaces only the marked block, leaving surrou
     "utf8"
   );
 
-  registerDecisionInstruction(projectRoot);
+  const { action } = registerDecisionInstruction(projectRoot);
 
+  assert.equal(action, "updated");
   const content = readFileSync(claudeMdPath, "utf8");
   assert.ok(content.includes("# My Project"));
   assert.ok(content.includes("## Other section\nKeep me."));
