@@ -34,3 +34,22 @@ test("scaffold does not overwrite an existing starter rule file", () => {
 
   assert.equal(readFileSync(starterRulePath, "utf8"), "custom content");
 });
+
+test("scaffold copies the SessionStart hook script into .claude/hooks/", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  const { hookScriptPath } = scaffold(projectRoot);
+
+  assert.ok(existsSync(hookScriptPath));
+  assert.match(readFileSync(hookScriptPath, "utf8"), /hookEventName/);
+});
+
+test("scaffold overwrites the hook script on repeat runs", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+  const { hookScriptPath } = scaffold(projectRoot);
+  writeFileSync(hookScriptPath, "stale content", "utf8");
+
+  scaffold(projectRoot);
+
+  assert.notEqual(readFileSync(hookScriptPath, "utf8"), "stale content");
+});
