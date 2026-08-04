@@ -3,11 +3,26 @@ import { join } from "node:path";
 
 const BEGIN_MARKER = "<!-- LAMD:BEGIN -->";
 const END_MARKER = "<!-- LAMD:END -->";
-const BEGIN_LINE_RE = /^<!-- LAMD:BEGIN -->$/m;
-const END_LINE_RE = /^<!-- LAMD:END -->$/m;
+const BEGIN_LINE_RE = /^<!-- LAMD:BEGIN -->\r?$/m;
+const END_LINE_RE = /^<!-- LAMD:END -->\r?$/m;
+
+const BLOCK_BODY_LINES = [
+  "## Project Memory (LAMD)",
+  "When an architectural decision is finalized (a technology choice, a",
+  "pattern change, a tradeoff with lasting consequences), call",
+  "`lamd_save_decision` to record it before moving on.",
+];
+
+function detectEol(content) {
+  return content.includes("\r\n") ? "\r\n" : "\n";
+}
+
+function buildBlock(eol) {
+  return [BEGIN_MARKER, ...BLOCK_BODY_LINES, END_MARKER].join(eol);
+}
 
 function lastBeginIndexBefore(content, endIndex) {
-  const re = /^<!-- LAMD:BEGIN -->$/gm;
+  const re = /^<!-- LAMD:BEGIN -->\r?$/gm;
   let lastIndex = -1;
   let match;
   while ((match = re.exec(content)) !== null && match.index <= endIndex) {
@@ -16,25 +31,17 @@ function lastBeginIndexBefore(content, endIndex) {
   return lastIndex;
 }
 
-const BLOCK_BODY = `## Project Memory (LAMD)
-When an architectural decision is finalized (a technology choice, a
-pattern change, a tradeoff with lasting consequences), call
-\`lamd_save_decision\` to record it before moving on.`;
-
-function buildBlock() {
-  return `${BEGIN_MARKER}\n${BLOCK_BODY}\n${END_MARKER}`;
-}
-
 export function registerDecisionInstruction(projectRoot) {
   const claudeMdPath = join(projectRoot, "CLAUDE.md");
-  const block = buildBlock();
 
   if (!existsSync(claudeMdPath)) {
-    writeFileSync(claudeMdPath, `${block}\n`, "utf8");
+    writeFileSync(claudeMdPath, `${buildBlock("\n")}\n`, "utf8");
     return claudeMdPath;
   }
 
   const content = readFileSync(claudeMdPath, "utf8");
+  const eol = detectEol(content);
+  const block = buildBlock(eol);
   const endMatch = END_LINE_RE.exec(content);
   const endIndex = endMatch ? endMatch.index : -1;
   const beginIndex =
@@ -43,8 +50,8 @@ export function registerDecisionInstruction(projectRoot) {
       : lastBeginIndexBefore(content, endIndex);
 
   if (beginIndex === -1 || endIndex === -1 || endIndex < beginIndex) {
-    const separator = content.endsWith("\n") ? "\n" : "\n\n";
-    writeFileSync(claudeMdPath, `${content}${separator}${block}\n`, "utf8");
+    const separator = /\r?\n$/.test(content) ? eol : eol + eol;
+    writeFileSync(claudeMdPath, `${content}${separator}${block}${eol}`, "utf8");
     return claudeMdPath;
   }
 
