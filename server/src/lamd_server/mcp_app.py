@@ -79,6 +79,9 @@ def _git_context(root: Path) -> tuple[str, str]:
 
 @mcp.tool()
 def lamd_save_decision(decision: str, reason: str, module: str) -> str:
+    """Call this when an architectural decision is finalized — a technology
+    choice, pattern change, or tradeoff with lasting consequences — to
+    record it for future sessions."""
     root = _project_root()
     _require_lamd_dir(root)
     author, branch = _git_context(root)
