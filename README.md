@@ -1,6 +1,6 @@
 # LAMD Core
 
-LAMD (Long-lived Agent Memory & Decisions) gives coding agents durable,
+LAMD (Local AI Memory Daemon) gives coding agents durable,
 project-scoped memory: rules injected into every session, and searchable
 records of past decisions and session summaries.
 
