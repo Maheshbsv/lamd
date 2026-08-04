@@ -6,6 +6,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
+import { HOOK_RELATIVE_PATH } from "../src/hookPaths.js";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = join(__dirname, "..", "bin", "lamd.js");
 
@@ -62,4 +64,24 @@ test("lamd init run twice does not duplicate the SessionStart hook entry", () =>
     readFileSync(join(projectRoot, ".claude", "settings.json"), "utf8")
   );
   assert.equal(settings.hooks.SessionStart.length, 1);
+});
+
+test("the registered SessionStart hook command path matches the actual scaffolded hook script", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-test-"));
+
+  execFileSync("node", [CLI_PATH, "init"], { cwd: projectRoot });
+
+  const settings = JSON.parse(
+    readFileSync(join(projectRoot, ".claude", "settings.json"), "utf8")
+  );
+  const command = settings.hooks.SessionStart[0].hooks[0].command;
+
+  assert.ok(
+    command.includes(HOOK_RELATIVE_PATH),
+    `expected command to include ${HOOK_RELATIVE_PATH}, got: ${command}`
+  );
+  assert.ok(
+    existsSync(join(projectRoot, ...HOOK_RELATIVE_PATH.split("/"))),
+    "scaffolded hook script must exist at the path referenced by the registered command"
+  );
 });

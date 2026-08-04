@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,8 +9,22 @@ import { test } from "node:test";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT_PATH = join(__dirname, "..", "templates", "lamd_inject_rules.py");
 
+function findPython() {
+  for (const candidate of ["python3", "python"]) {
+    try {
+      execFileSync(candidate, ["--version"]);
+      return candidate;
+    } catch {
+      // try next candidate
+    }
+  }
+  throw new Error("Neither python3 nor python found on PATH");
+}
+
+const PYTHON = findPython();
+
 function runHook(projectRoot) {
-  const output = execFileSync("python", [SCRIPT_PATH], { cwd: projectRoot });
+  const output = execFileSync(PYTHON, [SCRIPT_PATH], { cwd: projectRoot });
   return JSON.parse(output.toString());
 }
 
@@ -69,7 +83,7 @@ test("skips an unreadable rule file and still injects the readable ones", () => 
   // Invalid UTF-8 byte sequence — triggers a decode error when the script reads it as text.
   writeFileSync(join(rulesDir, "02-bad.md"), Buffer.from([0xff, 0xfe, 0x00, 0xff]));
 
-  const output = execFileSync("python", [SCRIPT_PATH], { cwd: projectRoot });
+  const output = execFileSync(PYTHON, [SCRIPT_PATH], { cwd: projectRoot });
   const result = JSON.parse(output.toString());
 
   assert.match(result.hookSpecificOutput.additionalContext, /Good rule\./);

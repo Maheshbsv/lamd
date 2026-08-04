@@ -6,7 +6,8 @@ import { test } from "node:test";
 
 import { registerSessionStartHook } from "../src/hookConfig.js";
 
-const LAMD_COMMAND = 'python "$CLAUDE_PROJECT_DIR/.claude/hooks/lamd_inject_rules.py"';
+const LAMD_COMMAND =
+  'uv run --no-project python "$CLAUDE_PROJECT_DIR/.claude/hooks/lamd_inject_rules.py"';
 
 test("registerSessionStartHook creates .claude/settings.json with a SessionStart entry when none exists", () => {
   const projectRoot = mkdtempSync(join(tmpdir(), "lamd-hookcfg-"));
@@ -69,4 +70,16 @@ test("registerSessionStartHook is idempotent", () => {
 
   const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
   assert.equal(settings.hooks.SessionStart.length, 1);
+});
+
+test("registerSessionStartHook throws a clear, actionable error on malformed settings.json", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-hookcfg-"));
+  mkdirSync(join(projectRoot, ".claude"), { recursive: true });
+  const settingsPath = join(projectRoot, ".claude", "settings.json");
+  writeFileSync(settingsPath, "{ this is not valid json,, }", "utf8");
+
+  assert.throws(
+    () => registerSessionStartHook(projectRoot),
+    (err) => err instanceof Error && err.message.includes(settingsPath)
+  );
 });
