@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from .git_info import GitUnavailableError, get_current_branch, get_git_user
 from .project_root import ProjectRootNotFoundError, find_project_root
 from .search import search_memory
 from .storage import list_rules, read_memory_records, write_decision, write_session
 
-mcp = FastMCP("lamd")
+mcp = MCPServer("lamd")
 
 MISSING_LAMD_ERROR = (
     "No .lamd/ directory found for this project. Run "
