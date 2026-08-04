@@ -98,3 +98,22 @@ test("registerDecisionInstruction does not clobber user content when lamd init i
   const occurrences = content.split(BEGIN_MARKER).length - 1;
   assert.equal(occurrences, 2, "orphaned BEGIN plus the one well-formed block's BEGIN");
 });
+
+test("registerDecisionInstruction does not treat a mid-sentence mention of the markers as a real block", () => {
+  const projectRoot = mkdtempSync(join(tmpdir(), "lamd-claudemd-"));
+  const claudeMdPath = join(projectRoot, "CLAUDE.md");
+  writeFileSync(
+    claudeMdPath,
+    `# My Project\n\nWe use ${BEGIN_MARKER} ... ${END_MARKER} sentinels.\n`,
+    "utf8"
+  );
+
+  registerDecisionInstruction(projectRoot);
+
+  const content = readFileSync(claudeMdPath, "utf8");
+  assert.ok(
+    content.includes(`We use ${BEGIN_MARKER} ... ${END_MARKER} sentinels.`),
+    "a mid-line mention of the markers must be left untouched, not rewritten as a real block"
+  );
+  assert.ok(content.includes("lamd_save_decision"));
+});
